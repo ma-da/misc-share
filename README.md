@@ -1,7 +1,16 @@
 # misc-share
 Misc. scripts for parsing scraped data, nlp, graph building, etc
 
-# WTKdbsort.ipynb is my current working notebook for generating and analyzing network graphs of the WTK news database
+# MAPpreprocess.ipynb 
+...is for preprocessing the WTK articles database into a dataset
+
+# MAPnlp.ipynb
+... contains snippets for NLP using SpaCy, deduplication using fuzzywuzzy, and ngram generation
+
+# MAPmaker.ipynb
+...is used to make the economic system corruption news map demonstrated in https://www.youtube.com/watch?v=lW9tvgH5r_w
+
+# WTKdbsort.ipynb is a starting-point notebook for generating and analyzing network graphs of the WTK news database
 It takes a few files exported from .SQLite tables, turns these into a big dataframe, cleans and preps the data for advanced indexing/analysis, and outputs a file to the specifications of kumu.com's graph rendering platform.
 
 This notebook can be made into the basis of a generalized tool. 
