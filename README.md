@@ -1,3 +1,7 @@
+# ULTRA.ipynb
+
+An ipython python notebook used to sort 17,612 document images using K-means clustering
+
 # misc-share
 Misc. scripts for parsing scraped data, nlp, graph building, etc
 
