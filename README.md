@@ -1,9 +1,9 @@
+# misc-share
+Misc. scripts for parsing scraped data, nlp, graph building, etc
+
 # ULTRA.ipynb
 
 An ipython python notebook used to sort 17,612 document images using K-means clustering
-
-# misc-share
-Misc. scripts for parsing scraped data, nlp, graph building, etc
 
 # MAPpreprocess.ipynb 
 ...is for preprocessing the WTK articles database into a dataset
