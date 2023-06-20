@@ -1,6 +1,9 @@
 # misc-share
 Misc. scripts for parsing scraped data, nlp, graph building, etc
 
+# preprocess.ipynb
+Updated code for turning the WantToKnow.info articles database into a useful dataset and identifying related article groupings using cosine similarity.
+
 # ULTRA.ipynb
 
 An ipython python notebook used to sort 17,612 document images using K-means clustering
