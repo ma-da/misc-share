@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>WantToKnow Archive Vector Search</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.5.2/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2024.5.2/core.js"></script>
+
+    <style>	
+        body {
+            margin-left: 20%;
+            margin-right: 20%;
+        }
+		
+        p {
+            font-size: 17px;
+            font-family: tahoma;
+        }
+
+        a {
+            color: red;
+        }
+		
+        a:hover {
+            background-color: black;
+            color: white;
+        }
+		
+        h1 {
+            font-family: tahoma;
+        }
+		
+        #loading, #footer {
+            color: cyan;
+            background-color: black;			
+            font-family: courier;
+            font-weight: bold;
+            text-align: center;
+            padding: 8px;			
+        }
+
+        #discuss {		
+            color: cyan;
+            background-color: black;			
+            font-family: courier;
+            font-weight: bold;
+            padding: 8px;			
+        }		
+		
+        #mainstory {
+            color: white;
+            background-color: black;
+            padding: 10px;
+        }
+		
+        #relatedstories {
+            width: 720px;
+            margin:auto;
+            font-size: 17px;
+            padding: 8px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px 12px;
+            box-sizing: border-box;
+            border: 5px solid red;
+            background-color: #f8f8f8;
+			font-family: courier;
+			font-weight: bold;
+            font-size: 16px;
+            resize: none;
+            margin: 16px 0;
+        }
+        
+        #brief, #summary-btn-container {
+            width: 49%;
+            box-sizing: border-box;
+            display: inline-block;
+            vertical-align: top;
+            margin: 16px 0;
+        }
+
+        #brief {
+            height: 40px;
+            padding: 8px 12px;
+            border: 5px solid black;
+            background-color: #f8f8f8;
+            font-size: 16px;
+            resize: none;
+        }
+
+        #summary-btn {
+            width: 100%;
+            height: 40px;
+            color: white;
+            background-color: red;
+            font-size: 16px;
+            text-align: center;
+            padding: 8px;
+        }
+
+        #submit-btn {
+            width: 100%;
+            color: white;
+            background-color: black;
+            font-size: 24px;
+            text-align: center;
+            padding: 12px;
+            margin: 16px 0;
+        }
+
+        #submit-btn:hover, #summary-btn:hover {
+            color: black;
+            background-color: white;
+        }
+
+        #chatstream {
+            font-family: garamond;
+            font-size: 15px;			
+        }
+		
+		#telegram-messages {
+            border: 10px solid cyan;
+            margin-left: 30px;
+            margin-right: 30px;
+            padding: 8px;			
+        }
+    </style>
+</head>
+<body>
+<py-config>
+    packages = [
+        "pandas",
+        "scikit-learn",
+        "pyodide-http",
+        "openai",
+        "ssl"
+    ]
+</py-config>
+    
+    <h1>WantToKnow.info Archive Vector Search</h1>
+    <p>Find news article recommendations based on term frequency-inverse document frequency (TF-IDF) vector cosine similarities. A search returns the 20 most closely related summaries from the <a href="https://www.wanttoknow.info/articlesearch" target="_blank">WantToKnow archive of 12,970 entries</a>. A chart showing how often each news source appears in the archive <a href="https://rstory.mypinata.cloud/ipfs/QmZtsjdEopZtRSfRWVHEKKz6445x3AnWN9cDeJjvV6dRVk" target="_blank">can be viewed here</a>. Note that publications which appeared fewer than 4 times in the archive were excluded from this graphic. A chart of how often each topic category appears in the archive <a href="https://rstory.mypinata.cloud/ipfs/QmSnfJVKakkZxk6QRV7vmF219sfNHjBh7CZi3ECkuhJ5Ni" target="_blank">can be viewed here</a>.</p>
+    <p><strong>Instructions:</strong> Enter a question or statement in the box below or run the sample query about mushrooms to see the search in action. When it comes to conspiracies and cover-ups, what do you most want to know? And if you're looking for more inspiring material, how would you best describe what inspires you? Be as detailed as possible. Five or six sentences is ideal. Press the submit button only once and wait for the data to be crunched. There's lots of complicated math being done, so the search may take many seconds. Scroll down to see results. Your mileage may vary on mobile.</p>
+	
+    <div id="loading">Page loading. This takes a minute...</div>
+    
+	<textarea id="askit">Forests are magical. Mushrooms are amazing and mysterious. They can also be used to solve problems. Building materials. Soil remediation. Curing treatment resistant depression. Anything is possible with fungi.</textarea>
+    <button id="submit-btn">Submit Query for Processing</button>
+    <div id="mainstory"></div>
+    <div id="relatedstories"></div>
+	<div id="discuss">_Below are the latest messages from the <a href="https://t.me/wanttoknow_unofficial">WantToKnow Unofficial Telegram group</a>.</div>
+	<div id="telegram-messages"></div>
+    <div id="footer">Page by <a href="https://hive.blog/@mada">Mark Bailey</a></div>
+	
+<script type="py">
+import pandas as pd
+import re
+import js
+from js import console, document, fetch
+from pyscript import when, display
+import pyodide_http
+from pyodide.http import open_url
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import openai
+import asyncio
+
+pyodide_http.patch_all()
+
+# Define global variables
+df = None
+similar_items = None
+
+# Re-implementing the Element class
+class Element:
+    def __init__(self, element_id, element=None):
+        self._id = element_id
+        self._element = element
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def element(self):
+        """Return the dom element"""
+        if not self._element:
+            self._element = js.document.querySelector(f"#{self._id}")
+        return self._element
+
+    @property
+    def value(self):
+        return self.element.value
+
+    @property
+    def innerHtml(self):
+        return self.element.innerHTML
+
+    def write(self, value, append=False):
+        if not append:
+            self.element.innerHTML = value
+        else:
+            self.element.innerHTML += value
+
+    def clear(self):
+        if hasattr(self.element, "value"):
+            self.element.value = ""
+        else:
+            self.write("", append=False)
+
+    def select(self, query, from_content=False):
+        el = self.element
+
+        if from_content:
+            el = el.content
+
+        _el = el.querySelector(query)
+        if _el:
+            return Element(_el.id, _el)
+        else:
+            js.console.warn(f"WARNING: can't find element matching query {query}")
+
+    def clone(self, new_id=None, to=None):
+        if new_id is None:
+            new_id = self.element.id
+
+        clone = self.element.cloneNode(True)
+        clone.id = new_id
+
+        if to:
+            to.element.appendChild(clone)
+            # Inject it into the DOM
+            to.element.after(clone)
+        else:
+            # Inject it into the DOM
+            self.element.after(clone)
+
+        return Element(clone.id, clone)
+
+    def remove_class(self, classname):
+        classList = self.element.classList
+        if isinstance(classname, list):
+            classList.remove(*classname)
+        else:
+            classList.remove(classname)
+
+    def add_class(self, classname):
+        classList = self.element.classList
+        if isinstance(classname, list):
+            self.element.classList.add(*classname)
+        else:
+            self.element.classList.add(classname)
+
+Element('loading').write("All components loaded. Enter your search below.")
+
+def decode(stuff, n):
+    s = stuff[n]
+    if len(s)==0:                 
+        return s
+    temp = ''                     
+    i = 0
+    while s[i] != ' ':
+        temp += s[i]
+        i+=1
+    i+=1                           
+    return decode(stuff, int(temp)) + s[i]
+
+encoded_string = "ENCODED STRING"
+
+stuff = ['']                         
+decoded_token = ''                             
+i=0
+
+while i<len(encoded_string):
+    temp = ''                       
+    while encoded_string[i] != ' ':
+        temp += encoded_string[i]
+        i+=1
+    i+=1                           
+    stuff.append(temp + ' ' + encoded_string[i])
+    i+=1                            
+
+for i in range(1, len(stuff)):
+    decoded_token += decode(stuff, i)
+
+@when('click', '#submit-btn')
+def query():
+    global df, similar_items
+    
+    question = Element('askit').element.value
+    Element('mainstory').write(question)
+    url = 'https://rstory.mypinata.cloud/ipfs/QmYENFaEQuyaNmtyEzbETj5hGHaLhLt4ytAdKpUJKzir3n'
+    df = pd.read_csv(open_url(url), sep='|', usecols=['ArticleId','Title','PublicationDate','Publication','Links','Description','Summary','Note','Priority','url'])
+    
+    # Deduplication and NaN cleanup
+    df = df.drop_duplicates('Title')
+    df = df[df['Priority'].notna()]
+
+    # Substituting multiple spaces with single space
+    df['Description'] = df['Description'].apply(lambda x: re.sub(r'\s+', ' ', str(x)))
+    df['Summary'] = df['Summary'].apply(lambda x: re.sub(r'\s+', ' ', str(x)))
+    df['Note'] = df['Note'].apply(lambda x: re.sub(r'\s+', ' ', str(x)))
+    
+    # Remove double quotes
+    df['Description'] = df['Description'].apply(lambda r: r.replace('\"\"', '\"'))
+
+    # Remove paragraph styling
+    df['Description'] = df['Description'].apply(lambda r: r.replace('<p style=\"text-align: justify;font-size: 11pt; font-family: Arial;margin: 0 0 11pt 0\">', '<p>'))
+    df['Description'] = df['Description'].apply(lambda r: r.replace('<p style=\"text-align: justify;font-size: 11pt; font-family: Arial;margin: 0 0 10pt 0\">', '<p>'))
+    df['Description'] = df['Description'].apply(lambda r: r.replace('<p>', ''))
+    df['Description'] = df['Description'].apply(lambda r: r.replace('</p>', ''))
+    df['Summary'] = df['Summary'].apply(lambda r: r.replace('<p>', ''))
+    df['Summary'] = df['Summary'].apply(lambda r: r.replace('</p>', ''))
+    
+    # Make some unique WTK URLs
+    makeurl = df['url'].astype(str)
+    df['url'] = "https://www.wanttoknow.info/a-" + makeurl
+    makelink = df['url'].astype(str)
+    df['url'] = '<a href="' + makelink + '" target="_blank">' + makelink + '</a>'	
+    
+    # Activate article source link
+    makelink2 = df['Links'].astype(str)
+    df['Links'] = '<a href="' + makelink2 + '" target="_blank">' + makelink2 + '</a>' 		
+	# Rename columns
+    df.rename(columns={"url": "WTKlink"}, inplace=True)
+    df.rename(columns={"Links": "ArticleSource"}, inplace=True)
+	
+    query_row = pd.DataFrame({'ArticleId': '54321','Title': 'Search Terms','PublicationDate': '','Publication': '','ArticleSource': '','Description': 'Variable','Priority': '','WTKlink': ''}, index=[0])
+    df = pd.concat([query_row, df]).reset_index(drop=True)
+    df.at[0, 'Description'] = question		
+
+    # Compute TF-IDF vectors and cosine similarities
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(df['Description'])
+    cosine_similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix).flatten()
+
+    # Find the 20 most similar articles
+    similar_indices = cosine_similarities.argsort()[-21:-1][::-1]
+    similar_items = df.iloc[similar_indices]
+    
+    # Drop the 'Description' column from similar_items
+    similar_items = similar_items.drop(columns=['Description'])
+
+    # Display the results in the specified format
+    result_html = ""
+    for index, row in similar_items.iterrows():
+        for col in similar_items.columns:
+            result_html += f"<b>{col}:</b> {row[col]}<br>"
+        result_html += "<br>"
+
+    Element('relatedstories').element.innerHTML = result_html
+
+async def fetch_telegram_messages():
+    telegram_token = decoded_token
+    url = f'https://api.telegram.org/bot{telegram_token}/getUpdates'
+    response = await fetch(url)
+    data = await response.json()
+    display_telegram_messages(data.to_py()['result'])
+
+def display_telegram_messages(messages):
+    container = Element('telegram-messages')
+    container.clear()
+    for msg in messages:
+        message_text = msg.get('message', {}).get('text', '')
+        if message_text:
+            message_element = document.createElement('p')
+            message_element.setAttribute('id', 'chatstream')
+            message_element.textContent = message_text
+            container.element.appendChild(message_element)
+
+# Fetch messages periodically
+async def periodic_fetch():
+    while True:
+        await fetch_telegram_messages()
+        await asyncio.sleep(5)
+
+# Start fetching messages
+asyncio.ensure_future(periodic_fetch())
+
+</script>
+
+</body>
+</html>
