@@ -1,3 +1,7 @@
+# vectorSearch.html
+
+One pager using Pyscript to search the WantToKnow.info news database using TF-IDF vector cosine similarity.
+
 # misc-share
 Misc. scripts for parsing scraped data, nlp, graph building, etc
 
